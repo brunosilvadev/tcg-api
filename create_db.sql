@@ -1,52 +1,100 @@
 -- TCG API - Initial Database Creation
 
-CREATE TABLE IF NOT EXISTS "Users" (
-    "Id"         SERIAL PRIMARY KEY,
-    "GoogleId"   VARCHAR(255) NOT NULL,
-    "Email"      VARCHAR(255) NOT NULL,
-    "Name"       VARCHAR(255) NOT NULL,
-    "PictureUrl" TEXT,
-    "CreatedAt"  TIMESTAMP NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    CONSTRAINT "UQ_Users_GoogleId" UNIQUE ("GoogleId"),
-    CONSTRAINT "UQ_Users_Email"    UNIQUE ("Email")
-);
 
-CREATE TABLE IF NOT EXISTS "WaitlistEntries" (
-    "Id"           SERIAL PRIMARY KEY,
-    "Email"        VARCHAR(255) NOT NULL,
-    "SignedUpAt"   TIMESTAMP NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc'),
-    "IsNotified"   BOOLEAN NOT NULL DEFAULT FALSE,
-    CONSTRAINT "UQ_WaitlistEntries_Email" UNIQUE ("Email")
-);
+-- Pindorama DB Schema
+-- PostgreSQL
 
+CREATE TYPE card_type AS ENUM ('Deity', 'Spirit', 'Creature', 'Ritual', 'Place', 'Artifact', 'Person');
+CREATE TYPE card_rarity AS ENUM ('Common', 'Uncommon', 'Rare', 'Legendary');
 
-select * from "WaitlistEntries";
-
-
-CREATE TYPE card_type AS ENUM ('Deity', 'Spirit', 'Ceremony', 'Legend', 'Artifact');
-CREATE TYPE card_rarity AS ENUM ('Common', 'Uncommon', 'Rare');
-
+-- Collections
 CREATE TABLE collections (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    total_cards INT NOT NULL DEFAULT 0,
-    cover_image_url TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name            VARCHAR(100) NOT NULL,
+    slug            VARCHAR(100) NOT NULL UNIQUE,
+    description     TEXT,
+    total_cards     INT NOT NULL DEFAULT 0,
+    is_active       BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Cards
 CREATE TABLE cards (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    collection_id UUID NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-    type card_type NOT NULL,
-    rarity card_rarity NOT NULL,
-    card_number INT NOT NULL,
-    illustration_url TEXT,
-    flavor_text TEXT,
-    created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE (collection_id, card_number)
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    collection_id   UUID NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    number          INT NOT NULL,
+    name            VARCHAR(100) NOT NULL,
+    type            card_type NOT NULL,
+    rarity          card_rarity NOT NULL,
+    flavor_text     TEXT,
+    art_url         VARCHAR(500),
+    artist_credit   VARCHAR(100),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (collection_id, number)
 );
 
-CREATE INDEX idx_cards_collection_id ON cards(collection_id);
-CREATE INDEX idx_cards_rarity ON cards(rarity);
+-- Users
+CREATE TABLE users (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email                   VARCHAR(255) NOT NULL UNIQUE,
+    username                VARCHAR(50) NOT NULL UNIQUE,
+    password_hash           VARCHAR(255) NOT NULL,
+    booster_packs_available INT NOT NULL DEFAULT 0,
+    login_streak            INT NOT NULL DEFAULT 0,
+    last_login_date         DATE,
+    created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- User card ownership
+CREATE TABLE user_cards (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    card_id           UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+    quantity          INT NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    first_obtained_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (user_id, card_id)
+);
+
+-- Booster pack open events
+CREATE TABLE booster_pack_opens (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    collection_id UUID NOT NULL REFERENCES collections(id),
+    opened_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Cards revealed per pack open
+CREATE TABLE booster_pack_cards (
+    id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    open_id UUID NOT NULL REFERENCES booster_pack_opens(id) ON DELETE CASCADE,
+    card_id UUID NOT NULL REFERENCES cards(id)
+);
+
+-- AI-generated daily facts
+CREATE TABLE daily_facts (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    collection_id  UUID NOT NULL REFERENCES collections(id),
+    fact_date      DATE NOT NULL,
+    content        TEXT NOT NULL,
+    source_prompt  TEXT,
+    generated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (collection_id, fact_date)
+);
+
+-- Waitlist
+CREATE TABLE waitlist_entries (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      UUID REFERENCES users(id) ON DELETE SET NULL,
+    email        VARCHAR(255) NOT NULL UNIQUE,
+    signed_up_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX idx_cards_collection        ON cards(collection_id);
+CREATE INDEX idx_cards_rarity            ON cards(rarity);
+CREATE INDEX idx_user_cards_user         ON user_cards(user_id);
+CREATE INDEX idx_user_cards_card         ON user_cards(card_id);
+CREATE INDEX idx_booster_opens_user      ON booster_pack_opens(user_id);
+CREATE INDEX idx_booster_cards_open      ON booster_pack_cards(open_id);
+CREATE INDEX idx_daily_facts_date        ON daily_facts(fact_date);
+CREATE INDEX idx_daily_facts_collection  ON daily_facts(collection_id);

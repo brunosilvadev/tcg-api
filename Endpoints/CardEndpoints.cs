@@ -23,7 +23,7 @@ public class CardEndpoints : IEndpoint
             if (type.HasValue)
                 query = query.Where(c => c.Type == type.Value);
 
-            var cards = await query.OrderBy(c => c.CollectionId).ThenBy(c => c.CardNumber).ToListAsync();
+            var cards = await query.OrderBy(c => c.CollectionId).ThenBy(c => c.Number).ToListAsync();
             return Results.Ok(cards);
         });
     }

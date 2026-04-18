@@ -30,7 +30,7 @@ public class WaitlistEndpoints : IEndpoint
             Results.Ok(await db.WaitlistEntries.OrderBy(w => w.SignedUpAt).ToListAsync())
         ).RequireAuthorization();
 
-        group.MapDelete("/{id:int}", async (int id, AppDbContext db) =>
+        group.MapDelete("/{id:guid}", async (Guid id, AppDbContext db) =>
         {
             var entry = await db.WaitlistEntries.FindAsync(id);
             if (entry is null) return Results.NotFound();

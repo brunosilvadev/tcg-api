@@ -4,29 +4,35 @@ public enum CardType
 {
     Deity,
     Spirit,
-    Ceremony,
-    Legend,
-    Artifact
+    Creature,
+    Ritual,
+    Place,
+    Artifact,
+    Person
 }
 
 public enum CardRarity
 {
     Common,
     Uncommon,
-    Rare
+    Rare,
+    Legendary
 }
 
 public class Card
 {
     public Guid Id { get; set; }
     public Guid CollectionId { get; set; }
+    public int Number { get; set; }
     public string Name { get; set; } = string.Empty;
     public CardType Type { get; set; }
     public CardRarity Rarity { get; set; }
-    public int CardNumber { get; set; }
-    public string? IllustrationUrl { get; set; }
     public string? FlavorText { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? ArtUrl { get; set; }
+    public string? ArtistCredit { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 
     public Collection Collection { get; set; } = null!;
+    public ICollection<UserCard> UserCards { get; set; } = [];
+    public ICollection<BoosterPackCard> BoosterPackCards { get; set; } = [];
 }
