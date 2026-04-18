@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using TcgApi.Models;
+using TcgApi.Data.Models;
 
 namespace TcgApi.Data;
 
@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BoosterPackCard> BoosterPackCards { get; set; } = null!;
     public DbSet<DailyFact> DailyFacts { get; set; } = null!;
     public DbSet<WaitlistEntry> WaitlistEntries { get; set; } = null!;
+    public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -115,6 +116,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithOne(u => u.WaitlistEntry)
                 .HasForeignKey<WaitlistEntry>(w => w.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<RefreshToken>(e =>
+        {
+            e.Property(r => r.Id).HasDefaultValueSql("gen_random_uuid()");
+            e.Property(r => r.Token).HasMaxLength(512);
+            e.HasIndex(r => r.Token).IsUnique();
+            e.HasIndex(r => r.UserId);
+            e.HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

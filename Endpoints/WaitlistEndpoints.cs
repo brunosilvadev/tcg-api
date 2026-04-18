@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using TcgApi.Data;
-using TcgApi.Models;
-using TcgApi.Models.Requests;
+using TcgApi.Data.Repositories;
+using TcgApi.Data.Models.Requests;
 
 namespace TcgApi.Endpoints;
 
@@ -14,29 +12,25 @@ public class WaitlistEndpoints : IEndpoint
 
         group.MapPost("", async (
             [FromBody] JoinWaitlistRequest request,
-            AppDbContext db) =>
+            WaitlistRepository repo) =>
         {
-            if (await db.WaitlistEntries.AnyAsync(w => w.Email == request.Email))
+            if (await repo.ExistsByEmailAsync(request.Email))
                 return Results.Conflict(new { message = "Email already on the waitlist." });
 
-            var entry = new WaitlistEntry { Email = request.Email };
-            db.WaitlistEntries.Add(entry);
-            await db.SaveChangesAsync();
-
+            var entry = await repo.AddAsync(request.Email);
             return Results.Created($"/waitlist/{entry.Id}", entry);
         });
 
-        group.MapGet("", async (AppDbContext db) =>
-            Results.Ok(await db.WaitlistEntries.OrderBy(w => w.SignedUpAt).ToListAsync())
+        group.MapGet("", async (WaitlistRepository repo) =>
+            Results.Ok(await repo.GetAllAsync())
         ).RequireAuthorization();
 
-        group.MapDelete("/{id:guid}", async (Guid id, AppDbContext db) =>
+        group.MapDelete("/{id:guid}", async (Guid id, WaitlistRepository repo) =>
         {
-            var entry = await db.WaitlistEntries.FindAsync(id);
+            var entry = await repo.GetByIdAsync(id);
             if (entry is null) return Results.NotFound();
 
-            db.WaitlistEntries.Remove(entry);
-            await db.SaveChangesAsync();
+            await repo.RemoveAsync(entry);
             return Results.NoContent();
         }).RequireAuthorization();
     }

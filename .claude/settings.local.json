@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p Data/Models/Requests)",
+      "Bash(git mv *)",
+      "Bash(rmdir Models/Requests)",
+      "Bash(rmdir Models)",
+      "Bash(mkdir -p C:/git/tcg-api/Data/Models/Requests)",
+      "Bash(mv C:/git/tcg-api/Models/*.cs C:/git/tcg-api/Data/Models/)",
+      "Bash(mv C:/git/tcg-api/Models/Requests/*.cs C:/git/tcg-api/Data/Models/Requests/)",
+      "Bash(rmdir C:/git/tcg-api/Models/Requests)",
+      "Bash(rmdir C:/git/tcg-api/Models)"
+    ]
+  }
+}

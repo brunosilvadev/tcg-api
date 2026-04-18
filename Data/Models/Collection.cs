@@ -1,4 +1,4 @@
-namespace TcgApi.Models;
+namespace TcgApi.Data.Models;
 
 public class Collection
 {
