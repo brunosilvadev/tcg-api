@@ -9,8 +9,4 @@ public class Collection
     public int TotalCards { get; set; }
     public bool IsActive { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
-
-    public ICollection<Card> Cards { get; set; } = [];
-    public ICollection<BoosterPackOpen> BoosterPackOpens { get; set; } = [];
-    public ICollection<DailyFact> DailyFacts { get; set; } = [];
 }

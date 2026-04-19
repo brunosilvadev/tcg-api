@@ -18,6 +18,13 @@ public class BoosterPackRepository(AppDbContext db)
     public void AddUserCard(UserCard userCard)
         => db.UserCards.Add(userCard);
 
+    public async Task<HashSet<Guid>> GetUserCardIdsAsync(Guid userId)
+        => (await db.UserCards
+            .Where(uc => uc.UserId == userId)
+            .Select(uc => uc.CardId)
+            .ToListAsync())
+            .ToHashSet();
+
     public async Task SaveChangesAsync()
         => await db.SaveChangesAsync();
 }

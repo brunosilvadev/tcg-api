@@ -31,8 +31,4 @@ public class Card
     public string? ArtUrl { get; set; }
     public string? ArtistCredit { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
-
-    public Collection Collection { get; set; } = null!;
-    public ICollection<UserCard> UserCards { get; set; } = [];
-    public ICollection<BoosterPackCard> BoosterPackCards { get; set; } = [];
 }

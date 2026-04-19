@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using TcgApi.Data.Repositories;
 using TcgApi.Data.Models;
 
@@ -9,14 +11,15 @@ public class CardEndpoints : IEndpoint
     {
         var group = app.MapGroup("/cards");
 
-        group.MapGet("", async (
-            CardRepository repo,
-            CardRarity? rarity,
-            CardType? type) =>
+        group.MapGet("", async (HttpContext ctx, CardRepository repo) =>
         {
-            var cards = await repo.GetAllAsync(rarity, type);
+            var userIdClaim = ctx.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+                return Results.Unauthorized();
+
+            var cards = await repo.GetByUserIdAsync(userId);
             return Results.Ok(cards);
-        });
+        }).RequireAuthorization();
 
         group.MapGet("{id:guid}", async (Guid id, CardRepository repo) =>
         {

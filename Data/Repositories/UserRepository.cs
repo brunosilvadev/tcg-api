@@ -5,6 +5,9 @@ namespace TcgApi.Data.Repositories;
 
 public class UserRepository(AppDbContext db)
 {
+    public Task<User?> GetByIdAsync(Guid id)
+        => db.Users.FirstOrDefaultAsync(u => u.Id == id);
+
     public Task<User?> GetByEmailAsync(string email)
         => db.Users.FirstOrDefaultAsync(u => u.Email == email);
 

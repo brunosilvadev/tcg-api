@@ -7,7 +7,7 @@ public class CardRepository(AppDbContext db)
 {
     public async Task<List<Card>> GetAllAsync(CardRarity? rarity = null, CardType? type = null)
     {
-        var query = db.Cards.Include(c => c.Collection).AsQueryable();
+        var query = db.Cards.AsQueryable();
 
         if (rarity.HasValue)
             query = query.Where(c => c.Rarity == rarity.Value);
@@ -20,13 +20,15 @@ public class CardRepository(AppDbContext db)
 
     public async Task<object?> GetByIdAsync(Guid id)
         => await db.Cards
-            .Include(c => c.Collection)
             .Where(c => c.Id == id)
             .Select(c => new
             {
                 c.Id,
                 c.CollectionId,
-                CollectionName = c.Collection.Name,
+                CollectionName = db.Collections
+                    .Where(col => col.Id == c.CollectionId)
+                    .Select(col => col.Name)
+                    .FirstOrDefault(),
                 c.Number,
                 c.Name,
                 c.Type,
@@ -60,5 +62,27 @@ public class CardRepository(AppDbContext db)
                 c.ArtUrl,
                 c.ArtistCredit
             })
+            .ToListAsync();
+
+    public async Task<List<object>> GetByUserIdAsync(Guid userId)
+        => await db.UserCards
+            .Where(uc => uc.UserId == userId)
+            .Join(db.Cards, uc => uc.CardId, c => c.Id, (uc, c) => new
+            {
+                c.Id,
+                c.CollectionId,
+                c.Number,
+                c.Name,
+                c.Type,
+                c.Rarity,
+                c.FlavorText,
+                c.ArtUrl,
+                c.ArtistCredit,
+                uc.Quantity,
+                uc.FirstObtainedAt
+            })
+            .OrderBy(x => x.CollectionId)
+            .ThenBy(x => x.Number)
+            .Cast<object>()
             .ToListAsync();
 }

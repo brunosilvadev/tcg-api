@@ -31,8 +31,9 @@ public class CollectionRepository(AppDbContext db)
                 c.Description,
                 c.TotalCards,
                 c.CreatedAt,
-                CardCount = c.Cards.Count,
-                RarityBreakdown = c.Cards
+                CardCount = db.Cards.Count(card => card.CollectionId == c.Id),
+                RarityBreakdown = db.Cards
+                    .Where(card => card.CollectionId == c.Id)
                     .GroupBy(card => card.Rarity)
                     .Select(g => new { Rarity = g.Key.ToString(), Count = g.Count() })
                     .ToList()

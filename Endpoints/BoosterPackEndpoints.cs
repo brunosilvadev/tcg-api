@@ -1,7 +1,7 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using TcgApi.Data.Repositories;
 using TcgApi.Data.Models;
-using TcgApi.Data.Models.Requests;
 using TcgApi.Services;
 
 namespace TcgApi.Endpoints;
@@ -14,41 +14,30 @@ public class BoosterPackEndpoints : IEndpoint
     {
         var group = app.MapGroup("/booster-packs").RequireAuthorization();
 
-        group.MapPost("/open", async (
-            OpenBoosterPackRequest req,
+        group.MapGet("/open", async (
             HttpContext ctx,
             UserRepository userRepo,
             CardRepository cardRepo,
             CollectionRepository collectionRepo,
             BoosterPackRepository packRepo) =>
         {
-            var email = ctx.User.FindFirstValue(ClaimTypes.Email);
-            if (email is null)
+            var userIdClaim = ctx.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
                 return Results.Unauthorized();
 
-            var user = await userRepo.GetByEmailAsync(email);
+            var user = await userRepo.GetByIdAsync(userId);
             if (user is null)
                 return Results.NotFound(new { error = "User not found." });
 
             if (user.BoosterPacksAvailable <= 0)
                 return Results.BadRequest(new { error = "No booster packs available." });
 
-            // Resolve collection: use requested one or pick a random active collection
-            Guid collectionId;
-            if (req.CollectionId.HasValue)
-            {
-                if (!await collectionRepo.ExistsActiveAsync(req.CollectionId.Value))
-                    return Results.NotFound(new { error = "Collection not found." });
-                collectionId = req.CollectionId.Value;
-            }
-            else
-            {
-                var collectionIds = await collectionRepo.GetActiveCollectionIdsAsync();
-                if (collectionIds.Count == 0)
-                    return Results.Problem("No active collections available.");
+            // v1.0: single collection, pick the first active one
+            var collectionIds = await collectionRepo.GetActiveCollectionIdsAsync();
+            if (collectionIds.Count == 0)
+                return Results.Problem("No active collections available.");
 
-                collectionId = collectionIds[Random.Shared.Next(collectionIds.Count)];
-            }
+            var collectionId = collectionIds.First();
 
             // Load all cards from the collection grouped by rarity
             var cardsByRarity = await cardRepo.GetCardIdsByRarityAsync(collectionId);
@@ -79,39 +68,59 @@ public class BoosterPackEndpoints : IEndpoint
                 });
             }
 
-            // Upsert UserCard quantities
+            // Check which drawn cards the user already owns
+            var ownedCardIds = await packRepo.GetUserCardIdsAsync(user.Id);
+            var repeatCardIds = new HashSet<Guid>(drawnCardIds.Where(id => ownedCardIds.Contains(id)));
+
+            // Only create UserCard for cards the user doesn't already own
             foreach (var cardId in drawnCardIds)
             {
-                var userCard = await packRepo.GetUserCardAsync(user.Id, cardId);
-
-                if (userCard is null)
+                if (!ownedCardIds.Contains(cardId))
+                {
                     packRepo.AddUserCard(new UserCard { Id = Guid.NewGuid(), UserId = user.Id, CardId = cardId, Quantity = 1 });
-                else
-                    userCard.Quantity++;
+                    ownedCardIds.Add(cardId); // track within this pack to avoid dupes from same draw
+                }
             }
 
             user.BoosterPacksAvailable--;
             await packRepo.SaveChangesAsync();
 
-            // Return pulled cards
-            var cards = await cardRepo.GetByIdsAsync(drawnCardIds);
+            // Return pulled cards with repeat flag
+            var cardLookup = (await cardRepo.GetByIdsAsync(drawnCardIds))
+                .Cast<dynamic>()
+                .ToDictionary(c => (Guid)c.Id);
 
             return Results.Ok(new
             {
                 packOpenId = packOpen.Id,
                 collectionId,
                 openedAt = packOpen.OpenedAt,
-                cards
+                cards = drawnCardIds.Select(id =>
+                {
+                    var d = cardLookup[id];
+                    return new
+                    {
+                        d.Id,
+                        d.Number,
+                        d.Name,
+                        d.Type,
+                        d.Rarity,
+                        d.FlavorText,
+                        d.ArtUrl,
+                        d.ArtistCredit,
+                        isRepeat = repeatCardIds.Contains(id)
+                    };
+                })
             });
         });
 
         group.MapGet("/status", async (HttpContext ctx, UserRepository userRepo) =>
         {
-            var email = ctx.User.FindFirstValue(ClaimTypes.Email);
-            if (email is null)
+            var userIdClaim = ctx.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
                 return Results.Unauthorized();
 
-            var user = await userRepo.GetByEmailAsync(email);
+            var user = await userRepo.GetByIdAsync(userId);
             if (user is null)
                 return Results.NotFound(new { error = "User not found." });
 

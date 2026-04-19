@@ -21,7 +21,7 @@ public static class EndpointExtensions
     {
         var endpoints = app.Services.GetRequiredService<IEnumerable<IEndpoint>>();
         var routeGroup = app.MapGroup(string.Empty)
-            .RequireCors("AngularDev");
+            .RequireCors("AngularUI");
 
         foreach (var endpoint in endpoints)
             endpoint.MapEndpoints(routeGroup);

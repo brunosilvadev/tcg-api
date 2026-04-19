@@ -89,6 +89,16 @@ CREATE TABLE waitlist_entries (
     signed_up_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Refresh tokens
+CREATE TABLE refresh_tokens (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token        VARCHAR(512) NOT NULL UNIQUE,
+    expires_at   TIMESTAMPTZ NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_revoked   BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 -- Indexes
 CREATE INDEX idx_cards_collection        ON cards(collection_id);
 CREATE INDEX idx_cards_rarity            ON cards(rarity);
@@ -98,3 +108,6 @@ CREATE INDEX idx_booster_opens_user      ON booster_pack_opens(user_id);
 CREATE INDEX idx_booster_cards_open      ON booster_pack_cards(open_id);
 CREATE INDEX idx_daily_facts_date        ON daily_facts(fact_date);
 CREATE INDEX idx_daily_facts_collection  ON daily_facts(collection_id);
+CREATE INDEX idx_refresh_tokens_user     ON refresh_tokens(user_id);
+
+-- TRUNCATE users CASCADE;

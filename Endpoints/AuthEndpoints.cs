@@ -2,9 +2,6 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -18,28 +15,6 @@ public class AuthEndpoints : IEndpoint
 {
     public void MapEndpoints(IEndpointRouteBuilder app)
     {
-        app.MapGet("/auth/google", () =>
-            Results.Challenge(
-                new AuthenticationProperties { RedirectUri = "/" },
-                [GoogleDefaults.AuthenticationScheme]));
-
-        app.MapPost("/auth/logout", async (HttpContext ctx) =>
-        {
-            await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            return Results.Ok();
-        }).RequireAuthorization();
-
-        app.MapGet("/auth/me", (HttpContext ctx) =>
-        {
-            var claims = ctx.User.Claims.Select(c => new { c.Type, c.Value });
-            return Results.Ok(new
-            {
-                name = ctx.User.Identity?.Name,
-                isAuthenticated = ctx.User.Identity?.IsAuthenticated,
-                claims
-            });
-        }).RequireAuthorization();
-
         app.MapPost("/auth/register", async (
             [FromBody] RegisterRequest request,
             AppDbContext db,
@@ -56,14 +31,17 @@ public class AuthEndpoints : IEndpoint
                 Email = request.Email,
                 Username = request.Username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+                BoosterPacksAvailable = 1,
                 CreatedAt = DateTimeOffset.UtcNow
             };
 
+            await using var transaction = await db.Database.BeginTransactionAsync();
             db.Users.Add(user);
             await db.SaveChangesAsync();
 
             var response = GenerateTokens(user, db, config);
             await db.SaveChangesAsync();
+            await transaction.CommitAsync();
 
             return Results.Created($"/users/{user.Id}", response);
         });

@@ -36,8 +36,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(c => c.CollectionId);
             e.HasIndex(c => c.Rarity);
             e.HasIndex(c => new { c.CollectionId, c.Number }).IsUnique();
-            e.HasOne(c => c.Collection)
-                .WithMany(col => col.Cards)
+            e.HasOne<Collection>()
+                .WithMany()
                 .HasForeignKey(c => c.CollectionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
@@ -60,12 +60,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(uc => uc.UserId);
             e.HasIndex(uc => uc.CardId);
             e.HasIndex(uc => new { uc.UserId, uc.CardId }).IsUnique();
-            e.HasOne(uc => uc.User)
-                .WithMany(u => u.UserCards)
+            e.HasOne<User>()
+                .WithMany()
                 .HasForeignKey(uc => uc.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(uc => uc.Card)
-                .WithMany(c => c.UserCards)
+            e.HasOne<Card>()
+                .WithMany()
                 .HasForeignKey(uc => uc.CardId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
@@ -74,12 +74,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.Property(b => b.Id).HasDefaultValueSql("gen_random_uuid()");
             e.HasIndex(b => b.UserId);
-            e.HasOne(b => b.User)
-                .WithMany(u => u.BoosterPackOpens)
+            e.HasOne<User>()
+                .WithMany()
                 .HasForeignKey(b => b.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(b => b.Collection)
-                .WithMany(col => col.BoosterPackOpens)
+            e.HasOne<Collection>()
+                .WithMany()
                 .HasForeignKey(b => b.CollectionId);
         });
 
@@ -87,12 +87,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.Property(b => b.Id).HasDefaultValueSql("gen_random_uuid()");
             e.HasIndex(b => b.OpenId);
-            e.HasOne(b => b.BoosterPackOpen)
-                .WithMany(o => o.BoosterPackCards)
+            e.HasOne<BoosterPackOpen>()
+                .WithMany()
                 .HasForeignKey(b => b.OpenId)
                 .OnDelete(DeleteBehavior.Cascade);
-            e.HasOne(b => b.Card)
-                .WithMany(c => c.BoosterPackCards)
+            e.HasOne<Card>()
+                .WithMany()
                 .HasForeignKey(b => b.CardId);
         });
 
@@ -102,8 +102,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(d => d.FactDate);
             e.HasIndex(d => d.CollectionId);
             e.HasIndex(d => new { d.CollectionId, d.FactDate }).IsUnique();
-            e.HasOne(d => d.Collection)
-                .WithMany(col => col.DailyFacts)
+            e.HasOne<Collection>()
+                .WithMany()
                 .HasForeignKey(d => d.CollectionId);
         });
 
@@ -112,8 +112,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(w => w.Id).HasDefaultValueSql("gen_random_uuid()");
             e.Property(w => w.Email).HasMaxLength(255);
             e.HasIndex(w => w.Email).IsUnique();
-            e.HasOne(w => w.User)
-                .WithOne(u => u.WaitlistEntry)
+            e.HasOne<User>()
+                .WithOne()
                 .HasForeignKey<WaitlistEntry>(w => w.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });

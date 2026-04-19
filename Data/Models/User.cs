@@ -10,8 +10,4 @@ public class User
     public int LoginStreak { get; set; }
     public DateOnly? LastLoginDate { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
-
-    public ICollection<UserCard> UserCards { get; set; } = [];
-    public ICollection<BoosterPackOpen> BoosterPackOpens { get; set; } = [];
-    public WaitlistEntry? WaitlistEntry { get; set; }
 }
