@@ -72,3 +72,6 @@ INSERT INTO cards (collection_id, number, name, type, rarity, flavor_text) VALUE
 
 -- Give all users a booster pack to open
 UPDATE users SET booster_packs_available = 1;
+
+
+select * from user_cards

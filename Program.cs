@@ -51,6 +51,7 @@ builder.Services.AddScoped<CardRepository>();
 builder.Services.AddScoped<CollectionRepository>();
 builder.Services.AddScoped<BoosterPackRepository>();
 builder.Services.AddScoped<WaitlistRepository>();
+builder.Services.AddScoped<DailyTaskRepository>();
 
 var app = builder.Build();
 

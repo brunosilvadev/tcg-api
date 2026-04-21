@@ -40,6 +40,7 @@ CREATE TABLE users (
     username                VARCHAR(50) NOT NULL UNIQUE,
     password_hash           VARCHAR(255) NOT NULL,
     booster_packs_available INT NOT NULL DEFAULT 0,
+    gems                    INT NOT NULL DEFAULT 0,
     login_streak            INT NOT NULL DEFAULT 0,
     last_login_date         DATE,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -89,6 +90,15 @@ CREATE TABLE waitlist_entries (
     signed_up_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Daily gem tasks (one completion per task type per user per day)
+CREATE TABLE user_daily_tasks (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    task_type      VARCHAR(50) NOT NULL,
+    completed_date DATE NOT NULL,
+    UNIQUE (user_id, task_type, completed_date)
+);
+
 -- Refresh tokens
 CREATE TABLE refresh_tokens (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -109,5 +119,6 @@ CREATE INDEX idx_booster_cards_open      ON booster_pack_cards(open_id);
 CREATE INDEX idx_daily_facts_date        ON daily_facts(fact_date);
 CREATE INDEX idx_daily_facts_collection  ON daily_facts(collection_id);
 CREATE INDEX idx_refresh_tokens_user     ON refresh_tokens(user_id);
+CREATE INDEX idx_daily_tasks_user        ON user_daily_tasks(user_id);
 
 -- TRUNCATE users CASCADE;

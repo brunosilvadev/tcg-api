@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using TcgApi.Data.Repositories;
 
 namespace TcgApi.Endpoints;
@@ -28,5 +30,18 @@ public class CollectionEndpoints : IEndpoint
             var cards = await repo.GetCardsByCollectionIdAsync(id);
             return Results.Ok(cards);
         });
+
+        group.MapGet("{id:guid}/progress", async (
+            Guid id,
+            HttpContext ctx,
+            CollectionRepository repo) =>
+        {
+            var userIdClaim = ctx.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+                return Results.Unauthorized();
+
+            var progress = await repo.GetUserProgressAsync(id, userId);
+            return progress is null ? Results.NotFound() : Results.Ok(progress);
+        }).RequireAuthorization();
     }
 }

@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using TcgApi.Data;
 using TcgApi.Data.Models;
 using TcgApi.Data.Models.Requests;
+using TcgApi.Data.Repositories;
 
 namespace TcgApi.Endpoints;
 
@@ -49,6 +50,7 @@ public class AuthEndpoints : IEndpoint
         app.MapPost("/auth/login", async (
             [FromBody] LoginRequest request,
             AppDbContext db,
+            DailyTaskRepository dailyTasks,
             IConfiguration config) =>
         {
             var user = await db.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
@@ -59,7 +61,17 @@ public class AuthEndpoints : IEndpoint
             var response = GenerateTokens(user, db, config);
             await db.SaveChangesAsync();
 
-            return Results.Ok(response);
+            var gemResult = await dailyTasks.CompleteTaskAsync(user.Id, DailyTaskRepository.TaskLogin);
+
+            return Results.Ok(new
+            {
+                response.AccessToken,
+                response.RefreshToken,
+                response.ExpiresAt,
+                GemAwarded = gemResult.WasNew,
+                Gems = gemResult.NewGemBalance,
+                PackAwarded = gemResult.PackAwarded
+            });
         });
 
         app.MapPost("/auth/refresh", async (

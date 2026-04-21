@@ -65,4 +65,44 @@ public class CollectionRepository(AppDbContext db)
             .Where(c => c.IsActive)
             .Select(c => c.Id)
             .ToListAsync();
+
+    public async Task<object?> GetUserProgressAsync(Guid collectionId, Guid userId)
+    {
+        if (!await ExistsActiveAsync(collectionId))
+            return null;
+
+        var cards = await db.Cards
+            .Where(c => c.CollectionId == collectionId)
+            .Select(c => new { c.Id, c.Rarity })
+            .ToListAsync();
+
+        var ownedIds = await db.UserCards
+            .Where(uc => uc.UserId == userId
+                         && db.Cards.Any(c => c.Id == uc.CardId && c.CollectionId == collectionId))
+            .Select(uc => uc.CardId)
+            .ToListAsync();
+
+        var ownedSet = new HashSet<Guid>(ownedIds);
+        var total = cards.Count;
+        var owned = cards.Count(c => ownedSet.Contains(c.Id));
+
+        var rarityBreakdown = cards
+            .GroupBy(c => c.Rarity)
+            .Select(g => new
+            {
+                Rarity = g.Key.ToString(),
+                Owned = g.Count(c => ownedSet.Contains(c.Id)),
+                Total = g.Count()
+            })
+            .ToList();
+
+        return new
+        {
+            CollectionId = collectionId,
+            Owned = owned,
+            Total = total,
+            Missing = total - owned,
+            RarityBreakdown = rarityBreakdown
+        };
+    }
 }

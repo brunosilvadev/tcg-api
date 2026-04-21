@@ -114,7 +114,10 @@ public class BoosterPackEndpoints : IEndpoint
             });
         });
 
-        group.MapGet("/status", async (HttpContext ctx, UserRepository userRepo) =>
+        group.MapGet("/status", async (
+            HttpContext ctx,
+            UserRepository userRepo,
+            BoosterPackRepository packRepo) =>
         {
             var userIdClaim = ctx.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
             if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
@@ -126,12 +129,29 @@ public class BoosterPackEndpoints : IEndpoint
 
             var totalPacksOpened = await userRepo.GetTotalPacksOpenedAsync(user.Id);
             var totalCardsCollected = await userRepo.GetTotalCardsCollectedAsync(user.Id);
+            var lastPackBestCard = await packRepo.GetLastPackBestCardAsync(user.Id);
 
             return Results.Ok(new
             {
                 packsAvailable = user.BoosterPacksAvailable,
+                boosterPacksAvailable = user.BoosterPacksAvailable,
                 loginStreak = user.LoginStreak,
                 lastLoginDate = user.LastLoginDate,
+                lastPackBestCard = lastPackBestCard is null
+                    ? null
+                    : new
+                    {
+                        lastPackBestCard.Id,
+                        lastPackBestCard.Number,
+                        lastPackBestCard.Name,
+                        lastPackBestCard.Type,
+                        lastPackBestCard.Rarity,
+                        lastPackBestCard.FlavorText,
+                        lastPackBestCard.ArtUrl,
+                        lastPackBestCard.ArtistCredit,
+                        lastPackBestCard.PackOpenId,
+                        lastPackBestCard.OpenedAt
+                    },
                 tasks = new[]
                 {
                     new { task = "Open your first pack",   completed = totalPacksOpened >= 1  },
