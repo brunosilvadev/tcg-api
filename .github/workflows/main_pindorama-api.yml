@@ -66,7 +66,7 @@ jobs:
             [
               {
                 "name": "ConnectionStrings__DefaultConnection",
-                "value": "Host=aws-1-us-west-2.pooler.supabase.com;Port=5432;Database=postgres;Username=postgres.sunqfrmovcbwdbmnicnv;Password=${{ secrets.DB_PASSWORD }};SSL Mode=Require;Trust Server Certificate=true",
+                "value": "Host=aws-1-us-west-2.pooler.supabase.com;Port=5432;Database=postgres;Username=pindorama_api.sunqfrmovcbwdbmnicnv;Password=${{ secrets.DB_PASSWORD }};SSL Mode=Require;Trust Server Certificate=true",
                 "slotSetting": false
               },
               {
