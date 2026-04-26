@@ -58,6 +58,24 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_5E25F8848C854E7AA3F87BE128BD2C9B }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C21BB8BE69BE4AF299BFAAD76E37F5B8 }}
 
+      - name: Configure App Settings
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: 'pindorama-api'
+          app-settings-json: |
+            [
+              {
+                "name": "ConnectionStrings__DefaultConnection",
+                "value": "Host=db.sunqfrmovcbwdbmnicnv.supabase.co;Port=5432;Database=postgres;Username=pindorama_api;Password=${{ secrets.DB_PASSWORD }};SSL Mode=Require;Trust Server Certificate=true",
+                "slotSetting": false
+              },
+              {
+                "name": "Jwt__Key",
+                "value": "${{ secrets.JWT_KEY }}",
+                "slotSetting": false
+              }
+            ]
+
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
