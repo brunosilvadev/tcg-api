@@ -55,12 +55,12 @@ builder.Services.AddScoped<DailyTaskRepository>();
 
 var app = builder.Build();
 
-app.MapOpenApi();
-app.MapScalarApiReference();
-
 app.UseCors("AngularUI");
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.MapOpenApi();
+app.MapScalarApiReference();
 app.MapEndpoints();
 
 await app.RunAsync();
