@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -55,9 +56,24 @@ builder.Services.AddScoped<DailyTaskRepository>();
 
 var app = builder.Build();
 
+app.UseExceptionHandler("/error");
 app.UseCors("AngularUI");
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.Map("/error", (HttpContext context, ILogger<Program> logger) =>
+{
+    var feature = context.Features.Get<IExceptionHandlerFeature>();
+    if (feature?.Error is { } ex)
+    {
+        logger.LogError(ex, "Unhandled exception on {Path}", feature.Path);
+    }
+
+    return Results.Problem(
+        title: "Internal Server Error",
+        detail: feature?.Error?.Message,
+        statusCode: StatusCodes.Status500InternalServerError);
+});
 
 app.MapOpenApi();
 app.MapScalarApiReference();
