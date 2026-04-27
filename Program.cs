@@ -18,7 +18,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AngularUI", policy =>
     {
-        policy.WithOrigins("http://localhost:4200", "https://kind-flower-0164c1e1e.7.azurestaticapps.net")
+        policy.WithOrigins("http://localhost:4200", "https://kind-flower-0164c1e1e.7.azurestaticapps.net", "https://pindorama.cc")
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
