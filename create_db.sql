@@ -37,7 +37,7 @@ CREATE TABLE cards (
 CREATE TABLE users (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email                   VARCHAR(255) NOT NULL UNIQUE,
-    username                VARCHAR(50) NOT NULL UNIQUE,
+    username                VARCHAR(50) NOT NULL,
     password_hash           VARCHAR(255) NOT NULL,
     booster_packs_available INT NOT NULL DEFAULT 0,
     gems                    INT NOT NULL DEFAULT 0,
