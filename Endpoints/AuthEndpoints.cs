@@ -24,9 +24,6 @@ public class AuthEndpoints : IEndpoint
             if (await db.Users.AnyAsync(u => u.Email == request.Email))
                 return Results.Conflict(new { message = "Email already in use." });
 
-            if (await db.Users.AnyAsync(u => u.Username == request.Username))
-                return Results.Conflict(new { message = "Username already in use." });
-
             var user = new User
             {
                 Email = request.Email,

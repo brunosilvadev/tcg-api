@@ -50,7 +50,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(u => u.Username).HasMaxLength(50);
             e.Property(u => u.PasswordHash).HasMaxLength(255);
             e.HasIndex(u => u.Email).IsUnique();
-            e.HasIndex(u => u.Username).IsUnique();
         });
 
         modelBuilder.Entity<UserCard>(e =>
@@ -143,4 +142,3 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         });
     }
 }
-
