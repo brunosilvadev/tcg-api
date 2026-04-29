@@ -80,3 +80,5 @@ app.MapScalarApiReference();
 app.MapEndpoints();
 
 await app.RunAsync();
+
+public partial class Program;

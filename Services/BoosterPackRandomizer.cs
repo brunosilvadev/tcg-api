@@ -6,21 +6,23 @@ public class BoosterPackRandomizer
 {
     public const int CardsPerPack = 6;
 
-    // Slot definitions: each slot is drawn from a pool of allowed rarities at equal odds.
-    private static readonly CardRarity[][] SlotPools =
+    private readonly record struct RarityWeight(CardRarity Rarity, int Weight);
+
+    // Slot definitions: choose a rarity by weight, then draw a random card from that rarity.
+    private static readonly RarityWeight[][] SlotWeights =
     [
-        [CardRarity.Common],
-        [CardRarity.Common],
-        [CardRarity.Common, CardRarity.Uncommon],
-        [CardRarity.Uncommon],
-        [CardRarity.Uncommon, CardRarity.Rare],
-        [CardRarity.Rare, CardRarity.Legendary],
+        [new(CardRarity.Common, 100)],
+        [new(CardRarity.Common, 100)],
+        [new(CardRarity.Common, 80), new(CardRarity.Uncommon, 20)],
+        [new(CardRarity.Uncommon, 100)],
+        [new(CardRarity.Common, 20), new(CardRarity.Uncommon, 75), new(CardRarity.Rare, 5)],
+        [new(CardRarity.Uncommon, 70), new(CardRarity.Rare, 25), new(CardRarity.Legendary, 5)],
     ];
 
     /// <summary>
     /// Selects <see cref="CardsPerPack"/> card IDs from <paramref name="cardsByRarity"/>
-    /// according to the fixed slot rules. Slots whose required rarities are entirely absent
-    /// from the collection fall back to the closest available rarity tier.
+    /// according to weighted slot rules. If the chosen rarity is absent from the collection,
+    /// the draw falls back to the nearest available rarity tier.
     /// </summary>
     /// <param name="cardsByRarity">All cards in the collection, keyed by rarity.</param>
     /// <returns>List of drawn card IDs (may contain duplicates).</returns>
@@ -28,39 +30,74 @@ public class BoosterPackRandomizer
     {
         var drawn = new List<Guid>(CardsPerPack);
 
-        foreach (var slotPool in SlotPools)
+        foreach (var slotWeights in SlotWeights)
         {
-            var pool = BuildPool(slotPool, cardsByRarity);
+            var rarity = ChooseRarity(slotWeights);
+            var pool = GetCardsForRarityOrNearest(rarity, cardsByRarity);
             drawn.Add(pool[Random.Shared.Next(pool.Count)]);
         }
 
         return drawn;
     }
 
-    // Merges the card lists for each rarity in the slot pool.
-    // Falls back up the rarity ladder if none of the preferred rarities are present.
-    private static IReadOnlyList<Guid> BuildPool(
-        CardRarity[] preferredRarities,
-        IReadOnlyDictionary<CardRarity, IReadOnlyList<Guid>> cardsByRarity)
+    private static CardRarity ChooseRarity(IReadOnlyList<RarityWeight> slotWeights)
     {
-        var combined = new List<Guid>();
+        var totalWeight = slotWeights.Sum(slotWeight => slotWeight.Weight);
+        var roll = Random.Shared.Next(totalWeight);
 
-        foreach (var rarity in preferredRarities)
+        foreach (var slotWeight in slotWeights)
         {
-            if (cardsByRarity.TryGetValue(rarity, out var cards))
-                combined.AddRange(cards);
+            if (roll < slotWeight.Weight)
+                return slotWeight.Rarity;
+
+            roll -= slotWeight.Weight;
         }
 
-        if (combined.Count > 0)
-            return combined;
+        throw new InvalidOperationException("Slot weights must contain at least one positive weight.");
+    }
 
-        // Fallback: use any available rarity in ascending order
-        foreach (CardRarity rarity in Enum.GetValues<CardRarity>())
+    private static IReadOnlyList<Guid> GetCardsForRarityOrNearest(
+        CardRarity selectedRarity,
+        IReadOnlyDictionary<CardRarity, IReadOnlyList<Guid>> cardsByRarity)
+    {
+        if (TryGetAvailableCards(selectedRarity, cardsByRarity, out var cards))
+            return cards;
+
+        var selectedIndex = (int)selectedRarity;
+        var rarityCount = Enum.GetValues<CardRarity>().Length;
+
+        for (var distance = 1; distance < rarityCount; distance++)
         {
-            if (cardsByRarity.TryGetValue(rarity, out var cards) && cards.Count > 0)
+            var lowerIndex = selectedIndex - distance;
+            if (lowerIndex >= 0
+                && TryGetAvailableCards((CardRarity)lowerIndex, cardsByRarity, out cards))
+            {
                 return cards;
+            }
+
+            var higherIndex = selectedIndex + distance;
+            if (higherIndex < rarityCount
+                && TryGetAvailableCards((CardRarity)higherIndex, cardsByRarity, out cards))
+            {
+                return cards;
+            }
         }
 
         throw new InvalidOperationException("Collection contains no cards.");
+    }
+
+    private static bool TryGetAvailableCards(
+        CardRarity rarity,
+        IReadOnlyDictionary<CardRarity, IReadOnlyList<Guid>> cardsByRarity,
+        out IReadOnlyList<Guid> cards)
+    {
+        if (cardsByRarity.TryGetValue(rarity, out var availableCards) && availableCards.Count > 0)
+        {
+            cards = availableCards;
+            return true;
+        }
+
+        cards = Array.Empty<Guid>();
+        return false;
     }
 }

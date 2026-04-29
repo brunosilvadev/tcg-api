@@ -68,18 +68,30 @@ public class BoosterPackEndpoints : IEndpoint
                 });
             }
 
-            // Check which drawn cards the user already owns
-            var ownedCardIds = await packRepo.GetUserCardIdsAsync(user.Id);
-            var repeatCardIds = new HashSet<Guid>(drawnCardIds.Where(id => ownedCardIds.Contains(id)));
+            var userCardsByCardId = await packRepo.GetUserCardsByCardIdsAsync(user.Id, drawnCardIds);
+            var cardResults = new List<(Guid CardId, bool IsRepeat, int QuantityOwned)>(drawnCardIds.Count);
 
-            // Only create UserCard for cards the user doesn't already own
             foreach (var cardId in drawnCardIds)
             {
-                if (!ownedCardIds.Contains(cardId))
+                if (userCardsByCardId.TryGetValue(cardId, out var userCard))
                 {
-                    packRepo.AddUserCard(new UserCard { Id = Guid.NewGuid(), UserId = user.Id, CardId = cardId, Quantity = 1 });
-                    ownedCardIds.Add(cardId); // track within this pack to avoid dupes from same draw
+                    userCard.Quantity++;
+                    cardResults.Add((cardId, true, userCard.Quantity));
+                    continue;
                 }
+
+                var newUserCard = new UserCard
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    CardId = cardId,
+                    Quantity = 1,
+                    FirstObtainedAt = DateTimeOffset.UtcNow
+                };
+
+                packRepo.AddUserCard(newUserCard);
+                userCardsByCardId[cardId] = newUserCard;
+                cardResults.Add((cardId, false, newUserCard.Quantity));
             }
 
             user.BoosterPacksAvailable--;
@@ -95,9 +107,9 @@ public class BoosterPackEndpoints : IEndpoint
                 packOpenId = packOpen.Id,
                 collectionId,
                 openedAt = packOpen.OpenedAt,
-                cards = drawnCardIds.Select(id =>
+                cards = cardResults.Select(result =>
                 {
-                    var d = cardLookup[id];
+                    var d = cardLookup[result.CardId];
                     return new
                     {
                         d.Id,
@@ -108,7 +120,8 @@ public class BoosterPackEndpoints : IEndpoint
                         d.FlavorText,
                         d.ArtUrl,
                         d.ArtistCredit,
-                        isRepeat = repeatCardIds.Contains(id)
+                        isRepeat = result.IsRepeat,
+                        quantityOwned = result.QuantityOwned
                     };
                 })
             });

@@ -21,4 +21,11 @@
     <PackageReference Include="Scalar.AspNetCore" Version="2.13.18" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="TcgApi.Tests\**\*.cs" />
+    <EmbeddedResource Remove="TcgApi.Tests\**\*" />
+    <None Remove="TcgApi.Tests\**\*" />
+    <Content Remove="TcgApi.Tests\**\*" />
+  </ItemGroup>
+
 </Project>

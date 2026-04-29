@@ -29,6 +29,15 @@ public class BoosterPackRepository(AppDbContext db)
         => await db.UserCards
             .FirstOrDefaultAsync(uc => uc.UserId == userId && uc.CardId == cardId);
 
+    public async Task<Dictionary<Guid, UserCard>> GetUserCardsByCardIdsAsync(Guid userId, IEnumerable<Guid> cardIds)
+    {
+        var distinctCardIds = cardIds.Distinct().ToList();
+
+        return await db.UserCards
+            .Where(uc => uc.UserId == userId && distinctCardIds.Contains(uc.CardId))
+            .ToDictionaryAsync(uc => uc.CardId);
+    }
+
     public void AddUserCard(UserCard userCard)
         => db.UserCards.Add(userCard);
 
