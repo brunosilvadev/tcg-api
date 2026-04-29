@@ -69,14 +69,17 @@ public class BoosterPackEndpoints : IEndpoint
             }
 
             var userCardsByCardId = await packRepo.GetUserCardsByCardIdsAsync(user.Id, drawnCardIds);
+            var ownedBeforePack = userCardsByCardId.Keys.ToHashSet();
             var cardResults = new List<(Guid CardId, bool IsRepeat, int QuantityOwned)>(drawnCardIds.Count);
 
             foreach (var cardId in drawnCardIds)
             {
+                var isRepeat = ownedBeforePack.Contains(cardId);
+
                 if (userCardsByCardId.TryGetValue(cardId, out var userCard))
                 {
                     userCard.Quantity++;
-                    cardResults.Add((cardId, true, userCard.Quantity));
+                    cardResults.Add((cardId, isRepeat, userCard.Quantity));
                     continue;
                 }
 
@@ -91,7 +94,7 @@ public class BoosterPackEndpoints : IEndpoint
 
                 packRepo.AddUserCard(newUserCard);
                 userCardsByCardId[cardId] = newUserCard;
-                cardResults.Add((cardId, false, newUserCard.Quantity));
+                cardResults.Add((cardId, isRepeat, newUserCard.Quantity));
             }
 
             user.BoosterPacksAvailable--;

@@ -59,6 +59,18 @@ public class BoosterPackRandomizerTests
         Assert.InRange(legendaryPerPack, 0.03, 0.07);
     }
 
+    [Fact]
+    public void Draw_ReturnsDistinctCards_WhenTheCollectionHasEnoughCards()
+    {
+        var randomizer = new BoosterPackRandomizer();
+        var cardsByRarity = CreateCollectionCardsByRarity();
+
+        var drawn = randomizer.Draw(cardsByRarity);
+
+        Assert.Equal(BoosterPackRandomizer.CardsPerPack, drawn.Count);
+        Assert.Equal(BoosterPackRandomizer.CardsPerPack, drawn.Distinct().Count());
+    }
+
     private static Dictionary<CardRarity, IReadOnlyList<Guid>> CreateCollectionCardsByRarity()
         => new()
         {

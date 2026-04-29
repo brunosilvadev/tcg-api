@@ -29,15 +29,26 @@ public class BoosterPackRandomizer
     public IReadOnlyList<Guid> Draw(IReadOnlyDictionary<CardRarity, IReadOnlyList<Guid>> cardsByRarity)
     {
         var drawn = new List<Guid>(CardsPerPack);
+        var drawnSet = new HashSet<Guid>();
 
         foreach (var slotWeights in SlotWeights)
         {
             var rarity = ChooseRarity(slotWeights);
             var pool = GetCardsForRarityOrNearest(rarity, cardsByRarity);
-            drawn.Add(pool[Random.Shared.Next(pool.Count)]);
+            var cardId = ChooseCard(pool, drawnSet);
+            drawn.Add(cardId);
+            drawnSet.Add(cardId);
         }
 
         return drawn;
+    }
+
+    private static Guid ChooseCard(IReadOnlyList<Guid> pool, IReadOnlySet<Guid> drawnSet)
+    {
+        var availableCards = pool.Where(cardId => !drawnSet.Contains(cardId)).ToList();
+        var sourcePool = availableCards.Count > 0 ? availableCards : pool;
+
+        return sourcePool[Random.Shared.Next(sourcePool.Count)];
     }
 
     private static CardRarity ChooseRarity(IReadOnlyList<RarityWeight> slotWeights)

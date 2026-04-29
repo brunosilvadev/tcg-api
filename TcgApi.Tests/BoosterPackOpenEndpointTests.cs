@@ -23,6 +23,38 @@ namespace TcgApi.Tests;
 public class BoosterPackOpenEndpointTests
 {
     [Fact]
+    public async Task OpenPack_ReturnsSixDistinctCards_WhenTheCollectionHasEnoughCards()
+    {
+        var databaseName = $"booster-pack-distinct-{Guid.NewGuid()}";
+        await using var factory = new BoosterPackApiFactory(databaseName);
+        var userId = Guid.NewGuid();
+        var collectionId = Guid.NewGuid();
+
+        await SeedBaselineCollectionAsync(factory.Services, userId, collectionId);
+
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.SchemeName);
+        client.DefaultRequestHeaders.Add(TestAuthHandler.UserIdHeaderName, userId.ToString());
+
+        using var response = await client.GetAsync("/booster-packs/open");
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+        var cards = document.RootElement.GetProperty("cards").EnumerateArray().ToList();
+        var cardIds = cards.Select(card => card.GetProperty("id").GetGuid()).ToList();
+
+        Assert.Equal(6, cards.Count);
+        Assert.Equal(6, cardIds.Distinct().Count());
+        Assert.All(cards, card => Assert.False(card.GetProperty("isRepeat").GetBoolean()));
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        Assert.Equal(6, await db.UserCards.CountAsync());
+        Assert.Equal(6, await db.BoosterPackCards.CountAsync());
+    }
+
+    [Fact]
     public async Task OpenPack_IncrementsQuantityForDuplicatesWithinTheSamePack()
     {
         var databaseName = $"booster-pack-open-{Guid.NewGuid()}";
@@ -44,12 +76,9 @@ public class BoosterPackOpenEndpointTests
         var cards = document.RootElement.GetProperty("cards").EnumerateArray().ToList();
 
         Assert.Equal(6, cards.Count);
-        Assert.False(cards[0].GetProperty("isRepeat").GetBoolean());
-        Assert.Equal(1, cards[0].GetProperty("quantityOwned").GetInt32());
-
-        for (var index = 1; index < cards.Count; index++)
+        for (var index = 0; index < cards.Count; index++)
         {
-            Assert.True(cards[index].GetProperty("isRepeat").GetBoolean());
+            Assert.False(cards[index].GetProperty("isRepeat").GetBoolean());
             Assert.Equal(index + 1, cards[index].GetProperty("quantityOwned").GetInt32());
         }
 
@@ -65,7 +94,48 @@ public class BoosterPackOpenEndpointTests
         Assert.Equal(6, await db.BoosterPackCards.CountAsync());
     }
 
-    private static async Task SeedDataAsync(IServiceProvider services, Guid userId, Guid collectionId, Guid cardId)
+    [Fact]
+    public async Task OpenPack_MarksCardsAsRepeat_WhenTheUserOwnedThemBeforeOpening()
+    {
+        var databaseName = $"booster-pack-owned-{Guid.NewGuid()}";
+        await using var factory = new BoosterPackApiFactory(databaseName);
+        var userId = Guid.NewGuid();
+        var collectionId = Guid.NewGuid();
+        var cardId = Guid.NewGuid();
+
+        await SeedDataAsync(factory.Services, userId, collectionId, cardId, ownsCardBeforeOpening: true);
+
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(TestAuthHandler.SchemeName);
+        client.DefaultRequestHeaders.Add(TestAuthHandler.UserIdHeaderName, userId.ToString());
+
+        using var response = await client.GetAsync("/booster-packs/open");
+        response.EnsureSuccessStatusCode();
+
+        using var document = JsonDocument.Parse(await response.Content.ReadAsStreamAsync());
+        var cards = document.RootElement.GetProperty("cards").EnumerateArray().ToList();
+
+        Assert.Equal(6, cards.Count);
+
+        for (var index = 0; index < cards.Count; index++)
+        {
+            Assert.True(cards[index].GetProperty("isRepeat").GetBoolean());
+            Assert.Equal(index + 2, cards[index].GetProperty("quantityOwned").GetInt32());
+        }
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var userCard = await db.UserCards.SingleAsync();
+
+        Assert.Equal(7, userCard.Quantity);
+    }
+
+    private static async Task SeedDataAsync(
+        IServiceProvider services,
+        Guid userId,
+        Guid collectionId,
+        Guid cardId,
+        bool ownsCardBeforeOpening = false)
     {
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -103,8 +173,68 @@ public class BoosterPackOpenEndpointTests
             CreatedAt = DateTimeOffset.UtcNow
         });
 
+        if (ownsCardBeforeOpening)
+        {
+            db.UserCards.Add(new UserCard
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                CardId = cardId,
+                Quantity = 1,
+                FirstObtainedAt = DateTimeOffset.UtcNow.AddDays(-1)
+            });
+        }
+
         await db.SaveChangesAsync();
     }
+
+    private static async Task SeedBaselineCollectionAsync(IServiceProvider services, Guid userId, Guid collectionId)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        await db.Database.EnsureCreatedAsync();
+
+        db.Collections.Add(new Collection
+        {
+            Id = collectionId,
+            Name = "Baseline Collection",
+            Slug = $"baseline-{collectionId:N}",
+            TotalCards = 36,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        db.Users.Add(new User
+        {
+            Id = userId,
+            Email = $"player-{userId:N}@example.com",
+            Username = $"player-{userId:N}",
+            PasswordHash = "hash",
+            BoosterPacksAvailable = 1,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        db.Cards.AddRange(CreateCards(collectionId, CardRarity.Common, 1, 17));
+        db.Cards.AddRange(CreateCards(collectionId, CardRarity.Uncommon, 18, 12));
+        db.Cards.AddRange(CreateCards(collectionId, CardRarity.Rare, 30, 6));
+        db.Cards.AddRange(CreateCards(collectionId, CardRarity.Legendary, 36, 1));
+
+        await db.SaveChangesAsync();
+    }
+
+    private static IEnumerable<Card> CreateCards(Guid collectionId, CardRarity rarity, int startNumber, int count)
+        => Enumerable.Range(startNumber, count)
+            .Select(number => new Card
+            {
+                Id = Guid.NewGuid(),
+                CollectionId = collectionId,
+                Number = number,
+                Name = $"{rarity} Card {number}",
+                Type = CardType.Creature,
+                Rarity = rarity,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
 }
 
 internal sealed class BoosterPackApiFactory(string databaseName) : WebApplicationFactory<Program>
