@@ -74,6 +74,28 @@ public class AuthEndpoints : IEndpoint
             });
         });
 
+        app.MapPut("/auth/change-password", async (
+            HttpContext ctx,
+            [FromBody] ChangePasswordRequest request,
+            AppDbContext db) =>
+        {
+            var userIdClaim = ctx.User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (userIdClaim is null || !Guid.TryParse(userIdClaim, out var userId))
+                return Results.Unauthorized();
+
+            var user = await db.Users.FindAsync(userId);
+            if (user is null)
+                return Results.Unauthorized();
+
+            if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+                return Results.BadRequest(new { message = "Current password is incorrect." });
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            await db.SaveChangesAsync();
+
+            return Results.NoContent();
+        }).RequireAuthorization();
+
         app.MapPost("/auth/refresh", async (
             [FromBody] RefreshTokenRequest request,
             AppDbContext db,
